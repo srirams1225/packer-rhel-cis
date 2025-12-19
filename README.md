@@ -1,6 +1,6 @@
 # Hardened RHEL 9 & Rocky Linux 9 AMI Builds with Packer (CIS Level 1)
 
-## TL;DR (For Interviewers)
+## TL;DR
 
 * Builds **hardened RHEL 9 and Rocky Linux 9 AMIs** on AWS
 * **CIS Level 1** compliance using **OpenSCAP** with dynamic tailoring
