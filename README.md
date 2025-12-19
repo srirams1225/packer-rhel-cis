@@ -43,11 +43,45 @@ This project **intentionally uses the SSH communicator**:
   * Handled by AWS (e.g., security groups)
   * Known to cause false positives in EC2 environments
 
-OpenSCAP exit codes are handled safely:
+  OpenSCAP exit codes are handled safely:
 
 * Exit code `2` (non-compliant findings) **does not fail the build**
 * Build only fails on execution or configuration errors
 
+* Customizing CIS Hardening (Skipping Rules)
+
+  This pipeline dynamically generates the CIS Tailoring file during the build to support both RHEL 9 and Rocky Linux 9. 
+
+**To disable specific CIS rules that conflict with your application, follow these steps:**
+
+##### A. Identify the Rule ID
+You cannot use the rule name; you must use the **OpenSCAP Rule ID**.
+1. Run a build and download the artifact `cis-reports.tar.gz`.
+2. Open the HTML report in your browser.
+3. Find the failed rule and click the title to expand it.
+4. Copy the **Rule ID** (e.g., `xccdf_org.ssgproject.content_rule_package_aide_installed`).
+
+##### B. Update the Hardening Script
+1. Open `scripts/cis-hardening.sh`.
+2. Scroll to the **"GENERATE DYNAMIC TAILORING FILE"** section (Step 3).
+3. Add a new `<xccdf:select>` line inside the `cat <<EOF` block.
+
+**Example:**
+```bash
+# ... inside scripts/cis-hardening.sh ...
+
+cat <<EOF > "$TAILORING_FILE"
+# ... (headers) ...
+  <xccdf:Profile id="$CUSTOM_PROFILE" extends="xccdf_org.ssgproject.content_profile_cis_server_l1">
+    
+    <xccdf:select idref="xccdf_org.ssgproject.content_rule_package_firewalld_installed" selected="false"/>
+
+    <xccdf:select idref="xccdf_org.ssgproject.content_rule_package_aide_installed" selected="false"/>
+
+  </xccdf:Profile>
+</xccdf:Tailoring>
+EOF
+```
 ---
 
 ### 3. CIS-Aligned Disk Layout (LVM)
