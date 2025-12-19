@@ -1,0 +1,25 @@
+# Packer
+*.pkr.hcl.json
+packer_cache/
+*.log
+
+# Variables (keep template, ignore actual values)
+# *.auto.pkrvars.hcl  # Commented out - keep template in repo
+*.auto.tfvars
+
+# Build artifacts
+cis-reports/
+cis-reports.tar.gz
+*.tar.gz
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+

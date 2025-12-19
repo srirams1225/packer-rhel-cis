@@ -1,0 +1,78 @@
+stages:
+  - validate
+  - build
+  - cleanup
+
+variables:
+  AWS_REGION: "us-east-1"
+  PACKER_VERSION: "1.11.0"
+  LINUX_VARIANT: "rhel"
+  ENABLE_CIS_HARDENING: "true"
+
+before_script:
+  - |
+    # Install Packer
+    wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+    sudo apt update && sudo apt install -y packer
+  - packer init .
+
+validate:
+  stage: validate
+  script:
+    - packer validate -var "root_password=dummy" .
+  only:
+    - merge_requests
+    - main
+    - develop
+
+build-rhel9:
+  stage: build
+  script:
+    - |
+      packer build \
+        -var "root_password=${ROOT_PASSWORD}" \
+        -var "linux_variant=rhel" \
+        -var "enable_cis_hardening=${ENABLE_CIS_HARDENING}" \
+        .
+  artifacts:
+    paths:
+      - cis-reports.tar.gz
+    expire_in: 30 days
+    when: always
+  only:
+    - main
+    - schedules
+  variables:
+    LINUX_VARIANT: "rhel"
+
+build-rocky9:
+  stage: build
+  script:
+    - |
+      packer build \
+        -var "root_password=${ROOT_PASSWORD}" \
+        -var "linux_variant=rocky" \
+        -var "enable_cis_hardening=${ENABLE_CIS_HARDENING}" \
+        .
+  artifacts:
+    paths:
+      - cis-reports.tar.gz
+    expire_in: 30 days
+    when: always
+  only:
+    - main
+    - schedules
+  variables:
+    LINUX_VARIANT: "rocky"
+
+cleanup-amis:
+  stage: cleanup
+  script:
+    - chmod +x scripts/cleanup-old-amis.sh
+    - ./scripts/cleanup-old-amis.sh rhel9-base 7 || echo "Cleanup failed"
+    - ./scripts/cleanup-old-amis.sh rocky9-base 7 || echo "Cleanup failed"
+  only:
+    - schedules
+  when: manual
+

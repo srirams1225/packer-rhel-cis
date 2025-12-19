@@ -1,0 +1,32 @@
+{
+  "_comment": "MINIMAL SSM POLICY - For reference only",
+  "_recommendation": "For production builds, use AWS managed policy: AmazonSSMManagedInstanceCore",
+  "_why_managed_policy": "The managed policy includes additional permissions for S3 (package downloads), CloudWatch (monitoring), and session artifacts that may be needed during AMI builds",
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ssm:UpdateInstanceInformation",
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2messages:AcknowledgeMessage",
+        "ec2messages:DeleteMessage",
+        "ec2messages:FailMessage",
+        "ec2messages:GetEndpoint",
+        "ec2messages:GetMessages",
+        "ec2messages:SendReply"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+

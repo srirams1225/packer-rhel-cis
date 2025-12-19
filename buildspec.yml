@@ -1,0 +1,35 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "Installing Packer..."
+      - |
+        wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+        echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+        sudo apt update && sudo apt install -y packer
+      - echo "Initializing Packer plugins..."
+      - packer init .
+      - echo "Validating Packer configuration..."
+      - packer validate -var "root_password=dummy" .
+  build:
+    commands:
+      - echo "Building AMI..."
+      - |
+        packer build \
+          -var "root_password=${ROOT_PASSWORD}" \
+          -var "linux_variant=${LINUX_VARIANT:-rhel}" \
+          -var "enable_cis_hardening=${ENABLE_CIS_HARDENING:-true}" \
+          .
+  post_build:
+    commands:
+      - echo "Build completed successfully"
+      - |
+        if [ -f cis-reports.tar.gz ]; then
+          echo "CIS reports available for download"
+        fi
+artifacts:
+  files:
+    - cis-reports.tar.gz
+  name: packer-build-artifacts
+

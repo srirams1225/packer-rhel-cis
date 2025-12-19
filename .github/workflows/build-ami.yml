@@ -1,0 +1,92 @@
+name: Build AMI with Packer
+
+on:
+  workflow_dispatch:
+    inputs:
+      linux_variant:
+        description: 'Linux variant (rhel or rocky)'
+        required: true
+        default: 'rhel'
+        type: choice
+        options:
+          - rhel
+          - rocky
+      enable_cis_hardening:
+        description: 'Enable CIS Level 1 hardening'
+        required: true
+        default: true
+        type: boolean
+      root_password:
+        description: 'Root password (will be stored as secret)'
+        required: true
+        type: string
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - '**.pkr.hcl'
+      - 'scripts/**'
+      - '.github/workflows/build-ami.yml'
+  pull_request:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  PACKER_VERSION: 1.11.0
+
+jobs:
+  build-ami:
+    name: Build ${{ inputs.linux_variant || 'rhel' }}9 AMI
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install Packer
+        run: |
+          wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt update && sudo apt install -y packer
+
+      - name: Validate Packer configuration
+        run: |
+          packer init .
+          packer validate -var "root_password=dummy" .
+
+      - name: Build AMI
+        env:
+          PKR_VAR_root_password: ${{ secrets.ROOT_PASSWORD || inputs.root_password }}
+          PKR_VAR_linux_variant: ${{ inputs.linux_variant || 'rhel' }}
+          PKR_VAR_enable_cis_hardening: ${{ inputs.enable_cis_hardening != false }}
+        run: |
+          packer build \
+            -var "root_password=${{ secrets.ROOT_PASSWORD || inputs.root_password }}" \
+            -var "linux_variant=${{ inputs.linux_variant || 'rhel' }}" \
+            -var "enable_cis_hardening=${{ inputs.enable_cis_hardening != false }}" \
+            .
+
+      - name: Upload CIS Reports
+        if: always() && inputs.enable_cis_hardening != false
+        uses: actions/upload-artifact@v4
+        with:
+          name: cis-reports-${{ inputs.linux_variant || 'rhel' }}-${{ github.run_number }}
+          path: cis-reports.tar.gz
+          retention-days: 30
+
+      - name: Cleanup old AMIs
+        if: success()
+        run: |
+          chmod +x scripts/cleanup-old-amis.sh
+          # Keep AMIs for 7 days
+          ./scripts/cleanup-old-amis.sh ${{ inputs.linux_variant || 'rhel' }}9-base 7 || echo "Cleanup script failed, continuing..."
+
